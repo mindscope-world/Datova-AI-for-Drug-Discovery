@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Download, Share2, ZoomIn, Info, RefreshCw, Move3d, Rotate3d, Layers, FileJson, Check } from 'lucide-react';
+import { Box, Download, Share2, ZoomIn, Info, RefreshCw, Move3d, Rotate3d, Layers, FileJson, Check, ShieldAlert, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { MOCK_MOLECULES, MOCK_PDB_DATA } from '../constants';
 import { Molecule } from '../types';
 
@@ -19,10 +19,17 @@ interface NGLViewerProps {
     refreshSignal: number;
 }
 
+interface ValidationResult {
+    isValid: boolean;
+    issues: string[];
+    timestamp: number;
+}
+
 const NGLViewer: React.FC<NGLViewerProps> = ({ moleculeId, style, spin, zoomSignal, refreshSignal }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const stageRef = useRef<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [validation, setValidation] = useState<ValidationResult | null>(null);
 
     // Initialize NGL Stage
     useEffect(() => {
@@ -45,12 +52,53 @@ const NGLViewer: React.FC<NGLViewerProps> = ({ moleculeId, style, spin, zoomSign
         };
     }, []);
 
+    // Plausibility Validation Logic
+    const validateStructure = (structure: any): ValidationResult => {
+        const issues: string[] = [];
+        const atoms = structure.atomStore;
+        const bonds = structure.bondStore;
+        
+        if (atoms.count === 0) {
+            return { isValid: false, issues: ["Empty structure data"], timestamp: Date.now() };
+        }
+
+        // 1. Bond Length Validation
+        // Heuristic: Bonds < 0.9A are often artifacts (clashes), bonds > 2.0A are usually too long for drug-like covalent bonds (except metal complexes)
+        for (let i = 0; i < bonds.count; i++) {
+            const idx1 = bonds.atomIndex1[i];
+            const idx2 = bonds.atomIndex2[i];
+            
+            const dx = atoms.x[idx1] - atoms.x[idx2];
+            const dy = atoms.y[idx1] - atoms.y[idx2];
+            const dz = atoms.z[idx1] - atoms.z[idx2];
+            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+            if (dist < 0.85) {
+                issues.push(`Severe Atomic Clash: Atoms ${idx1}-${idx2} are too close (${dist.toFixed(2)}Å)`);
+            } else if (dist > 2.1) {
+                issues.push(`Abnormal Bond Length: Linkage ${idx1}-${idx2} exceeds standard limits (${dist.toFixed(2)}Å)`);
+            }
+        }
+
+        // 2. Density Check
+        if (atoms.count > 0 && bonds.count === 0) {
+            issues.push("Disconnected Topology: No covalent bonds detected");
+        }
+
+        return {
+            isValid: issues.length === 0,
+            issues: issues.slice(0, 3), // Only show top 3 issues
+            timestamp: Date.now()
+        };
+    };
+
     // Load Data & Update Style
     const loadMolecule = async () => {
         const stage = stageRef.current;
         if (!stage) return;
 
         setIsLoading(true);
+        setValidation(null);
         stage.removeAllComponents();
 
         await new Promise(r => setTimeout(r, 600)); 
@@ -58,6 +106,11 @@ const NGLViewer: React.FC<NGLViewerProps> = ({ moleculeId, style, spin, zoomSign
         
         try {
             const component = await stage.loadFile(pdbBlob, { ext: 'pdb', defaultRepresentation: false });
+            
+            // Perform Chemical Validation
+            const validationResult = validateStructure(component.structure);
+            setValidation(validationResult);
+
             if (style === 'cartoon') {
                  component.addRepresentation("cartoon", { colorScheme: "chain" });
                  component.addRepresentation("licorice", { sele: "ligand or not polymer", scale: 2.0 });
@@ -71,6 +124,7 @@ const NGLViewer: React.FC<NGLViewerProps> = ({ moleculeId, style, spin, zoomSign
             component.autoView();
         } catch (error) {
             console.error("Failed to load PDB:", error);
+            setValidation({ isValid: false, issues: ["Format Error: Invalid PDB parsing"], timestamp: Date.now() });
         } finally {
             setIsLoading(false);
         }
@@ -92,12 +146,47 @@ const NGLViewer: React.FC<NGLViewerProps> = ({ moleculeId, style, spin, zoomSign
     return (
         <div className="relative h-full w-full">
             <div ref={containerRef} className="h-full w-full" />
+            
+            {/* Loading Overlay */}
             {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-20">
                     <div className="flex flex-col items-center gap-2 text-primary">
                          <RefreshCw className="h-8 w-8 animate-spin" />
                          <span className="text-xs font-mono animate-pulse">Recalculating Surface...</span>
                     </div>
+                </div>
+            )}
+
+            {/* Validation HUD */}
+            {!isLoading && validation && (
+                <div className="absolute bottom-24 right-4 z-20 flex flex-col gap-2 max-w-xs animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className={`flex items-center gap-3 p-3 rounded-2xl border backdrop-blur-xl shadow-2xl ${
+                        validation.isValid 
+                        ? 'bg-green-500/10 border-green-500/20 text-green-400' 
+                        : 'bg-red-500/10 border-red-500/20 text-red-400'
+                    }`}>
+                        {validation.isValid ? <ShieldCheck className="h-5 w-5 shrink-0" /> : <ShieldAlert className="h-5 w-5 shrink-0" />}
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase tracking-widest">
+                                {validation.isValid ? 'Geometric Validation: Passed' : 'Validation Warning'}
+                            </span>
+                            {!validation.isValid && (
+                                <span className="text-[9px] font-medium opacity-80 leading-tight mt-0.5">
+                                    {validation.issues[0]}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    {!validation.isValid && validation.issues.length > 1 && (
+                        <div className="bg-surface/80 border border-white/5 p-2 rounded-xl text-[8px] text-slate-500 flex flex-col gap-1">
+                            {validation.issues.slice(1).map((issue, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                    <AlertTriangle className="h-2.5 w-2.5 text-yellow-500" />
+                                    {issue}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
