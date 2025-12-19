@@ -4,9 +4,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: [
-      'datova-ai-for-drug-discovery.onrender.com'
-    ],
+    allowedHosts: 'all',
     host: true,
     port: 5173
   }

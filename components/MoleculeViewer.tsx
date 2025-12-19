@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Download, Share2, ZoomIn, Info, RefreshCw, Move3d, Rotate3d, Layers, FileJson } from 'lucide-react';
+import { Box, Download, Share2, ZoomIn, Info, RefreshCw, Move3d, Rotate3d, Layers, FileJson, Check } from 'lucide-react';
 import { MOCK_MOLECULES, MOCK_PDB_DATA } from '../constants';
 import { Molecule } from '../types';
 
@@ -114,6 +114,8 @@ const MoleculeViewer: React.FC = () => {
   const [zoomSignal, setZoomSignal] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const [hoveredItem, setHoveredItem] = useState<{ mol: Molecule; y: number; x: number } | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
       setViewMode(selectedMol.has3D ? '3D' : '2D');
@@ -143,6 +145,12 @@ const MoleculeViewer: React.FC = () => {
     a.href = url;
     a.download = `report_${selectedMol.id}.json`;
     a.click();
+  };
+
+  const handleShare = () => {
+      navigator.clipboard.writeText(selectedMol.smiles);
+      setCopying(true);
+      setTimeout(() => setCopying(false), 2000);
   };
 
   return (
@@ -182,9 +190,17 @@ const MoleculeViewer: React.FC = () => {
         </div>
         
         <div className="rounded-2xl border border-white/5 bg-surface p-6 shadow-inner">
-            <h4 className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                <Info className="h-4 w-4" /> Descriptor Set
-            </h4>
+            <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <Info className="h-4 w-4" /> Descriptor Set
+                </h4>
+                <button 
+                    onClick={() => setShowDetails(!showDetails)}
+                    className="p-1 hover:bg-white/5 rounded-full transition-colors"
+                >
+                    <Info className={`h-4 w-4 ${showDetails ? 'text-primary' : 'text-slate-600'}`} />
+                </button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
                 {[
                     { label: 'Mol. Weight', val: selectedMol.mw, unit: 'Da' },
@@ -200,6 +216,11 @@ const MoleculeViewer: React.FC = () => {
                     </div>
                 ))}
             </div>
+            {showDetails && (
+                <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20 text-[10px] text-slate-300 animate-in slide-in-from-top-2">
+                    Descriptors computed via RDKit engine. Values represent the most probable conformer state at physiological pH.
+                </div>
+            )}
         </div>
       </div>
 
@@ -236,6 +257,13 @@ const MoleculeViewer: React.FC = () => {
          </div>
 
          <div className="absolute top-4 right-4 z-10 flex gap-2">
+            <button 
+                onClick={handleShare}
+                className="p-2.5 rounded-full bg-surface/80 hover:bg-primary/20 hover:text-primary text-white backdrop-blur-md border border-white/10 transition-all hover:scale-110 flex items-center justify-center"
+                title="Copy SMILES"
+            >
+                {copying ? <Check className="h-4 w-4 text-green-400" /> : <Share2 className="h-4 w-4" />}
+            </button>
             <button onClick={() => setZoomSignal(s => s + 1)} className="p-2.5 rounded-full bg-surface/80 hover:bg-primary/20 hover:text-primary text-white backdrop-blur-md border border-white/10 transition-all hover:scale-110">
                 <ZoomIn className="h-4 w-4" />
             </button>
