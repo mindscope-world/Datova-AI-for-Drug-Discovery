@@ -1,0 +1,5 @@
+{
+  "name": "Invero",
+  "description": "A production-ready platform for drug hunting, transforming Python RDKit scripts into a modern web service for molecule ingestion, docking analysis, and stochastic design.",
+  "requestFramePermissions": []
+}
