@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Search, Bell, Settings, User, LogOut, Monitor, ChevronRight, Check } from 'lucide-react';
+import { Menu, Search, Bell, Settings, User, LogOut, Monitor, ChevronRight, Check, X, Shield, CreditCard, BellOff } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { ViewState } from '../types';
 
@@ -19,12 +19,14 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<'notifications' | 'settings' | 'profile' | null>(null);
+  const [activeModal, setActiveModal] = useState<'profile' | 'preferences' | null>(null);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [isDark, setIsDark] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Close dropdowns when clicking outside
   const headerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
@@ -43,6 +45,11 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
     setNotifications(prev => prev.map(n => ({...n, read: true})));
   };
 
+  const clearNotifications = () => {
+    setNotifications([]);
+    setActiveDropdown(null);
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const toggleTheme = () => {
@@ -59,19 +66,34 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
     setView(ViewState.DASHBOARD);
   };
 
+  // Fix: Make children optional in the type definition to resolve the "missing children" TS error in JSX
+  const Modal = ({ title, onClose, children }: { title: string, onClose: () => void, children?: React.ReactNode }) => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-surface shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/5">
+          <h3 className="text-lg font-bold text-white">{title}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background font-sans text-slate-200">
       <Sidebar 
         currentView={currentView} 
         setView={(v) => { setView(v); setIsSidebarOpen(false); }} 
         isOpen={isSidebarOpen} 
-        onSettings={() => toggleDropdown('settings')}
+        onSettings={() => setActiveModal('preferences')}
         onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
       <div className="lg:pl-64 transition-all duration-300">
-        {/* Top Header */}
         <header ref={headerRef} className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-background/80 px-4 backdrop-blur-md lg:px-8">
             <div className="flex items-center gap-4">
                 <button 
@@ -84,14 +106,15 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
                     <Search className="mr-2 h-4 w-4 text-slate-500" />
                     <input 
                         type="text" 
-                        placeholder="Search projects, molecules..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search workspace..." 
                         className="bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none w-64"
                     />
                 </div>
             </div>
 
             <div className="flex items-center gap-3">
-                {/* Notifications */}
                 <div className="relative">
                     <button 
                         onClick={() => toggleDropdown('notifications')}
@@ -107,21 +130,22 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
                         <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-white/10 bg-surface shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden z-50">
                             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/5">
                                 <h3 className="font-semibold text-white text-sm">Notifications</h3>
-                                {unreadCount > 0 && (
-                                    <button 
-                                        onClick={markAllRead}
-                                        className="text-[10px] text-primary hover:text-primary/80 transition-colors"
-                                    >
-                                        Mark all read
-                                    </button>
-                                )}
+                                <div className="flex gap-3">
+                                    {unreadCount > 0 && (
+                                        <button onClick={markAllRead} className="text-[10px] text-primary hover:text-primary/80">Mark Read</button>
+                                    )}
+                                    <button onClick={clearNotifications} className="text-[10px] text-red-400 hover:text-red-300">Clear</button>
+                                </div>
                             </div>
                             <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
                                 {notifications.length === 0 ? (
-                                    <div className="p-4 text-center text-xs text-slate-500">No notifications</div>
+                                    <div className="p-8 text-center flex flex-col items-center gap-2">
+                                        <BellOff className="h-8 w-8 text-slate-700" />
+                                        <span className="text-xs text-slate-500 italic">No new alerts</span>
+                                    </div>
                                 ) : (
                                     notifications.map((notif) => (
-                                        <div key={notif.id} className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? 'bg-primary/5' : ''}`}>
+                                        <div key={notif.id} className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!notif.read ? 'bg-primary/5 border-l-2 border-l-primary' : ''}`}>
                                             <div className="flex justify-between items-start mb-1">
                                                 <span className={`text-xs font-bold ${notif.type === 'success' ? 'text-green-400' : notif.type === 'warning' ? 'text-yellow-400' : 'text-blue-400'}`}>
                                                     {notif.title}
@@ -140,7 +164,6 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
                     )}
                 </div>
 
-                {/* Settings */}
                 <div className="relative">
                     <button 
                          onClick={() => toggleDropdown('settings')}
@@ -155,22 +178,14 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
                                  <h3 className="font-semibold text-white text-sm">Quick Settings</h3>
                              </div>
                              <div className="space-y-1">
-                                 <div 
-                                    onClick={toggleTheme}
-                                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group"
-                                 >
+                                 <div onClick={toggleTheme} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group">
                                      <div className="flex items-center gap-3 text-sm text-slate-300 group-hover:text-white">
                                          <Monitor className="h-4 w-4" />
                                          <span>Appearance</span>
                                      </div>
-                                     <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-400 min-w-[30px] text-center">
-                                         {isDark ? 'Dark' : 'Light'}
-                                     </span>
+                                     <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-slate-400">{isDark ? 'Dark' : 'Light'}</span>
                                  </div>
-                                  <div 
-                                    onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-                                    className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group"
-                                  >
+                                  <div onClick={() => setNotificationsEnabled(!notificationsEnabled)} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group">
                                      <div className="flex items-center gap-3 text-sm text-slate-300 group-hover:text-white">
                                          <Bell className="h-4 w-4" />
                                          <span>Notifications</span>
@@ -179,12 +194,18 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
                                          <div className={`absolute top-1 h-2 w-2 rounded-full transition-all ${notificationsEnabled ? 'bg-primary right-1' : 'bg-slate-400 left-1'}`}></div>
                                      </div>
                                  </div>
+                                 <div onClick={() => { setActiveModal('preferences'); setActiveDropdown(null); }} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 cursor-pointer group">
+                                     <div className="flex items-center gap-3 text-sm text-slate-300 group-hover:text-white">
+                                         <Shield className="h-4 w-4" />
+                                         <span>Advanced</span>
+                                     </div>
+                                     <ChevronRight className="h-3 w-3 text-slate-600" />
+                                 </div>
                              </div>
                          </div>
                     )}
                 </div>
 
-                {/* Profile */}
                 <div className="relative pl-2 border-l border-white/10 ml-1">
                     <button 
                         onClick={() => toggleDropdown('profile')}
@@ -207,20 +228,14 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
                                  <p className="text-xs text-slate-400">gleb.novikov@invero.ai</p>
                              </div>
                              <div className="p-2">
-                                 <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
-                                     <User className="h-4 w-4" /> Profile
+                                 <button onClick={() => { setActiveModal('profile'); setActiveDropdown(null); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
+                                     <User className="h-4 w-4" /> Profile Details
                                  </button>
-                                 <button 
-                                    onClick={() => toggleDropdown('settings')}
-                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors"
-                                 >
+                                 <button onClick={() => { setActiveModal('preferences'); setActiveDropdown(null); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors">
                                      <Settings className="h-4 w-4" /> Preferences
                                  </button>
                                  <div className="my-2 border-t border-white/5"></div>
-                                 <button 
-                                    onClick={handleLogout}
-                                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
-                                 >
+                                 <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors">
                                      <LogOut className="h-4 w-4" /> Sign Out
                                  </button>
                              </div>
@@ -230,10 +245,63 @@ const Layout: React.FC<LayoutProps> = ({ currentView, setView, children }) => {
             </div>
         </header>
 
-        {/* Scrollable View Content */}
         <main className="p-4 lg:p-8">
             {children}
         </main>
+
+        {activeModal === 'profile' && (
+            <Modal title="User Profile" onClose={() => setActiveModal(null)}>
+                <div className="space-y-4">
+                    <div className="flex items-center gap-6 pb-6 border-b border-white/5">
+                         <div className="h-24 w-24 rounded-2xl overflow-hidden border-2 border-primary/20">
+                            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Felix" />
+                         </div>
+                         <div>
+                            <h4 className="text-xl font-bold text-white">Gleb Novikov</h4>
+                            <p className="text-sm text-primary">Lead Computational Chemist</p>
+                            <p className="text-xs text-slate-500 mt-1">Member since Jan 2024</p>
+                         </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                            <span className="text-[10px] uppercase text-slate-500 block mb-1">Compute Used</span>
+                            <span className="text-white font-mono">1,240 hrs</span>
+                        </div>
+                        <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                            <span className="text-[10px] uppercase text-slate-500 block mb-1">Storage</span>
+                            <span className="text-white font-mono">250 GB / 1 TB</span>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+        )}
+
+        {activeModal === 'preferences' && (
+            <Modal title="Account Preferences" onClose={() => setActiveModal(null)}>
+                <div className="space-y-6">
+                    <div>
+                        <h4 className="text-xs font-bold uppercase text-slate-500 mb-4 tracking-widest">Security</h4>
+                        <button className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                            <div className="flex items-center gap-3">
+                                <Shield className="h-4 w-4 text-slate-400 group-hover:text-primary" />
+                                <span className="text-sm text-slate-300">Two-Factor Authentication</span>
+                            </div>
+                            <span className="text-xs text-red-400">Disabled</span>
+                        </button>
+                    </div>
+                    <div>
+                        <h4 className="text-xs font-bold uppercase text-slate-500 mb-4 tracking-widest">Billing</h4>
+                        <button className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                            <div className="flex items-center gap-3">
+                                <CreditCard className="h-4 w-4 text-slate-400 group-hover:text-accent" />
+                                <span className="text-sm text-slate-300">Subscription Plan</span>
+                            </div>
+                            <span className="text-xs text-slate-400">Enterprise Elite</span>
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+        )}
       </div>
     </div>
   );

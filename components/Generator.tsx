@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dices, Sparkles, Zap, Terminal, Settings, RefreshCw, Play, ShieldAlert, Ghost, Microscope, Download } from 'lucide-react';
+import { Dices, Sparkles, Zap, Terminal, Settings, RefreshCw, Play, ShieldAlert, Ghost, Microscope, Download, X, Activity } from 'lucide-react';
 
 // --- Constants & Types ---
 
@@ -26,8 +26,8 @@ const RING_POOL = [
 
 interface GeneratedMolecule {
   id: number;
-  rings: string[]; // Names of rings
-  smiles_components: string[]; // SMILES of rings
+  rings: string[];
+  smiles_components: string[];
   chiralMode: number;
   bluffed: boolean;
   timestamp: string;
@@ -39,28 +39,22 @@ interface LogEntry {
   timestamp: string;
 }
 
-// --- Helper Functions ---
-
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- Main Component ---
-
 const Generator: React.FC = () => {
-    // Configuration State
     const [numStructures, setNumStructures] = useState<number>(5);
-    const [chiralSwitch, setChiralSwitch] = useState<number>(1); // 0: off, 1: single, 2: double
-    const [filterStrategy, setFilterStrategy] = useState<number>(2); // 1, 2, 3
+    const [chiralSwitch, setChiralSwitch] = useState<number>(1);
+    const [filterStrategy, setFilterStrategy] = useState<number>(2);
     const [casinoSwitch, setCasinoSwitch] = useState<boolean>(true);
     
-    // Execution State
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [results, setResults] = useState<GeneratedMolecule[]>([]);
     const [progress, setProgress] = useState<number>(0);
+    const [selectedDetail, setSelectedDetail] = useState<GeneratedMolecule | null>(null);
 
     const logContainerRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll logs
     useEffect(() => {
         if (logContainerRef.current) {
             logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
@@ -71,11 +65,8 @@ const Generator: React.FC = () => {
         setLogs(prev => [...prev, { message, type, timestamp: new Date().toLocaleTimeString() }]);
     };
 
-    // --- Logic ---
-
     const bluffSpin = (pool: typeof RING_POOL): { item: typeof RING_POOL[0], bluffed: boolean } => {
         const first = pool[Math.floor(Math.random() * pool.length)];
-        // 30% chance to bluff
         if (Math.random() < 0.3) {
             const second = pool[Math.floor(Math.random() * pool.length)];
             return { item: second, bluffed: true };
@@ -89,29 +80,22 @@ const Generator: React.FC = () => {
         setResults([]);
         setProgress(0);
 
-        addLog(`👑 Welcome to the Royal Gamble Lite`, 'info');
-        await sleep(500);
-        addLog(`🔮 Casting ${numStructures} structures, Master!`, 'info');
-        await sleep(500);
+        addLog(`👑 CASINO ENGINE INITIALIZED`, 'casino');
+        await sleep(400);
+        addLog(`🔮 Allocating ${numStructures} target structural slots...`, 'info');
+        await sleep(400);
         
-        if (casinoSwitch) {
-            addLog(`🎰 The chemical rings will be selected using bluff-spin`, 'casino');
-        } else {
-            addLog(`🤷‍♂️ The chemical rings will be selected randomly`, 'info');
-        }
+        const mode = casinoSwitch ? 'BLUFF-SPIN (Stochastic)' : 'PURE-RANDOM';
+        addLog(`🎰 SELECTION MODE: ${mode}`, 'casino');
         await sleep(500);
-        addLog(`🔆 LET'S START THE SORCERY 🔆`, 'warning');
-        await sleep(800);
 
         let count = 0;
         let attempts = 0;
-        const maxAttempts = 1000;
+        const maxAttempts = 500;
         const newResults: GeneratedMolecule[] = [];
 
         while (count < numStructures && attempts < maxAttempts) {
             attempts++;
-            
-            // 1. Select Rings
             const ringSelections = [];
             let isBluffed = false;
 
@@ -120,40 +104,22 @@ const Generator: React.FC = () => {
                     const spin = bluffSpin(RING_POOL);
                     ringSelections.push(spin.item);
                     if (spin.bluffed) isBluffed = true;
-                    // Visual log for the first few attempts only to save spam
-                    if (count < 2) {
-                        if (spin.bluffed) addLog(`🎲 Ring ${i} selected via BLUFF: ${spin.item.name}`, 'casino');
-                        await sleep(100);
-                    }
                 } else {
-                    const ring = RING_POOL[Math.floor(Math.random() * RING_POOL.length)];
-                    ringSelections.push(ring);
+                    ringSelections.push(RING_POOL[Math.floor(Math.random() * RING_POOL.length)]);
                 }
             }
 
             const [r1, r2, r3] = ringSelections;
-
-            // 2. Filter
             let keep = true;
-            if (filterStrategy === 1) {
-                // Discard if all 3 identical
-                if (r1.name === r2.name && r2.name === r3.name) keep = false;
-            } else if (filterStrategy === 2) {
-                // Discard adjacent duplicates
-                if (r1.name === r2.name || r2.name === r3.name) keep = false;
-            } else if (filterStrategy === 3) {
-                // Keep only unique
-                const names = new Set([r1.name, r2.name, r3.name]);
-                if (names.size !== 3) keep = false;
-            }
+            if (filterStrategy === 1) { if (r1.name === r2.name && r2.name === r3.name) keep = false; }
+            else if (filterStrategy === 2) { if (r1.name === r2.name || r2.name === r3.name) keep = false; }
+            else if (filterStrategy === 3) { if (new Set([r1.name, r2.name, r3.name]).size !== 3) keep = false; }
 
             if (!keep) {
-                addLog(`🃏 DISCARDED: Attempt ${attempts} failed filter strategy ${filterStrategy}`, 'warning');
-                await sleep(50);
+                if (attempts % 10 === 0) addLog(`🃏 Filter Collision (Attempt ${attempts})`, 'warning');
                 continue;
             }
 
-            // 3. Success
             count++;
             const molecule: GeneratedMolecule = {
                 id: count,
@@ -165,302 +131,216 @@ const Generator: React.FC = () => {
             };
 
             newResults.push(molecule);
-            setResults([...newResults]); // Update UI incrementally
+            setResults([...newResults]);
             setProgress((count / numStructures) * 100);
             
-            addLog(`✨ Molecule ${count} created at attempt ${attempts}`, 'success');
-            await sleep(200); // Visual delay
+            addLog(`✨ Mapped #${count} in ${attempts} iterations`, 'success');
+            await sleep(150);
         }
 
-        if (count >= numStructures) {
-             addLog(`⚗️ Work completed: crafted ${count} molecules in ${attempts} attempts.`, 'success');
-        } else {
-             addLog(`💥 Stopped after max attempts (${maxAttempts}).`, 'error');
-        }
-
+        addLog(`⚗️ Synthesis batch #${Math.floor(Math.random()*9000)+1000} ready.`, 'success');
         setIsGenerating(false);
     };
 
     const downloadSDF = () => {
         if (results.length === 0) return;
-        
-        // Construct a mock SDF file content
-        let sdfContent = '';
-        results.forEach(mol => {
-            sdfContent += `${mol.id}\n  Invero  ${mol.timestamp}\n\n  0  0  0  0  0  0  0  0  0  0999 V2000\n`;
-            // Mock atom block (empty for lite version representation, typically this would contain coordinates)
-            sdfContent += `M  END\n`;
-            sdfContent += `>  <ID>\n${mol.id}\n\n`;
-            sdfContent += `>  <GENERATED_TIMESTAMP>\n${mol.timestamp}\n\n`;
-            sdfContent += `>  <RINGS_USED>\n${mol.rings.join('; ')}\n\n`;
-            sdfContent += `>  <SMILES_PARTS>\n${mol.smiles_components.join('.')}\n\n`;
-            if (mol.bluffed) {
-                 sdfContent += `>  <BLUFF_SPIN>\nTRUE\n\n`;
-            }
-            sdfContent += `$$$$\n`;
-        });
-    
+        let sdfContent = results.map(mol => `${mol.id}\n  Invero\n\n  0  0  0  0  0  0  0  0  0  0999 V2000\nM  END\n>  <SMILES>\n${mol.smiles_components.join('.')}\n\n$$$$\n`).join('');
         const blob = new Blob([sdfContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `CASINO_${new Date().toISOString().slice(0,10)}.sdf`;
-        document.body.appendChild(a);
+        a.download = `Batch_CASINO_${new Date().toISOString().slice(0,10)}.sdf`;
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    };
+
+    const launchDocking = (mol: GeneratedMolecule) => {
+        addLog(`🚀 LAUNCHING DOCKING FOR UNIT #${mol.id}...`, 'info');
+        addLog(`📡 Job sent to cluster: NODE-4/7`, 'success');
     };
 
     return (
-        <div className="mx-auto max-w-7xl space-y-8 animate-in fade-in duration-500">
-            {/* Header */}
+        <div className="mx-auto max-w-7xl space-y-8 animate-in fade-in duration-500 pb-20">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-                        <Dices className="h-8 w-8 text-secondary" />
+                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter flex items-center gap-4">
+                        <Dices className="h-10 w-10 text-secondary" />
                         Royal Gamble Lite
-                        <span className="text-xs bg-secondary/20 text-secondary px-2 py-1 rounded-full border border-secondary/20 font-mono">v1.07 demo</span>
                     </h2>
-                    <p className="mt-2 text-slate-400 max-w-2xl">
-                        Design drug-like molecules using combinatorics inspired by casino models. 
-                        Unfold novel chemical spaces with controlled stochasticity.
+                    <p className="mt-2 text-slate-500 font-medium max-w-2xl text-sm uppercase tracking-widest">
+                        Combinatorial Design for novel chemical scafolds.
                     </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                
-                {/* LEFT COLUMN: Configuration */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="lg:col-span-4 space-y-6">
-                    <div className="rounded-2xl border border-white/5 bg-surface p-6 shadow-xl">
-                        <div className="mb-6 flex items-center gap-2 border-b border-white/10 pb-4">
+                    <div className="rounded-3xl border border-white/5 bg-surface p-8 shadow-2xl">
+                        <div className="mb-8 flex items-center gap-3 border-b border-white/5 pb-6">
                             <Settings className="h-5 w-5 text-primary" />
-                            <h3 className="font-semibold text-white">Configuration</h3>
+                            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white">Engine Settings</h3>
                         </div>
                         
-                        <div className="space-y-6">
-                            {/* Structures Count */}
+                        <div className="space-y-8">
                             <div>
-                                <label className="mb-2 flex items-center justify-between text-sm font-medium text-slate-300">
-                                    <span>Structures to Generate</span>
-                                    <span className="font-mono text-primary">{numStructures}</span>
+                                <label className="mb-4 flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    <span>Population Size</span>
+                                    <span className="font-mono text-primary text-sm">{numStructures}</span>
                                 </label>
-                                <input 
-                                    type="range" 
-                                    min="1" max="50" 
-                                    value={numStructures}
-                                    onChange={(e) => setNumStructures(parseInt(e.target.value))}
-                                    disabled={isGenerating}
-                                    className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-surfaceHighlight accent-primary" 
-                                />
+                                <input type="range" min="1" max="50" value={numStructures} onChange={(e) => setNumStructures(parseInt(e.target.value))} disabled={isGenerating} className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-surfaceHighlight accent-primary" />
                             </div>
 
-                            {/* Chiral Switch */}
                             <div>
-                                <label className="mb-2 block text-sm font-medium text-slate-300">Chiral Linkers</label>
+                                <label className="mb-4 block text-[10px] font-black uppercase tracking-widest text-slate-500">Chiral Interconnects</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {[0, 1, 2].map((opt) => (
-                                        <button
-                                            key={opt}
-                                            onClick={() => setChiralSwitch(opt)}
-                                            disabled={isGenerating}
-                                            className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                                                chiralSwitch === opt
-                                                ? 'border-primary bg-primary/20 text-white'
-                                                : 'border-white/5 bg-white/5 text-slate-400 hover:bg-white/10'
-                                            }`}
-                                        >
-                                            {opt === 0 ? 'None' : opt === 1 ? 'Single (1)' : 'Double (2)'}
+                                        <button key={opt} onClick={() => setChiralSwitch(opt)} disabled={isGenerating} className={`rounded-xl border py-3 text-[10px] font-bold uppercase transition-all ${chiralSwitch === opt ? 'border-primary bg-primary/20 text-primary shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-white/5 bg-white/5 text-slate-500 hover:text-slate-300'}`}>
+                                            {opt === 0 ? 'Off' : opt === 1 ? '1x' : '2x'}
                                         </button>
                                     ))}
                                 </div>
-                                <p className="mt-2 text-[10px] text-slate-500">
-                                    {chiralSwitch === 0 ? "Ring1 — Ring2 — Ring3" : 
-                                     chiralSwitch === 1 ? "Ring1 — Chiral — Ring2 — Ring3" : 
-                                     "Ring1 — Chiral — Ring2 — Chiral — Ring3"}
-                                </p>
                             </div>
 
-                            {/* Filtering Strategy */}
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-slate-300">Filtering Strategy</label>
-                                <select
-                                    value={filterStrategy}
-                                    onChange={(e) => setFilterStrategy(parseInt(e.target.value))}
-                                    disabled={isGenerating}
-                                    className="w-full rounded-lg border border-white/10 bg-black/20 p-2.5 text-sm text-white focus:border-primary focus:outline-none"
-                                >
-                                    <option value={1}>Strategy 1: Discard Identical Triples</option>
-                                    <option value={2}>Strategy 2: No Adjacent Duplicates</option>
-                                    <option value={3}>Strategy 3: All Unique Rings</option>
-                                </select>
-                            </div>
-
-                            {/* Casino Switch */}
-                            <div className="flex items-center justify-between rounded-xl border border-secondary/20 bg-secondary/5 p-4">
+                            <div className="flex items-center justify-between rounded-2xl border border-secondary/20 bg-secondary/5 p-5 shadow-inner">
                                 <div>
-                                    <span className="block text-sm font-bold text-white">Casino Mode</span>
-                                    <span className="text-xs text-secondary">Bluff-Spin Logic</span>
+                                    <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-white">Bluff-Spin Mode</span>
+                                    <span className="text-[9px] font-bold text-secondary uppercase opacity-70">Stochastic Boost</span>
                                 </div>
-                                <button 
-                                    onClick={() => setCasinoSwitch(!casinoSwitch)}
-                                    disabled={isGenerating}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                        casinoSwitch ? 'bg-secondary' : 'bg-slate-700'
-                                    }`}
-                                >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                        casinoSwitch ? 'translate-x-6' : 'translate-x-1'
-                                    }`}/>
+                                <button onClick={() => setCasinoSwitch(!casinoSwitch)} disabled={isGenerating} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${casinoSwitch ? 'bg-secondary' : 'bg-slate-800'}`}>
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${casinoSwitch ? 'translate-x-6' : 'translate-x-1'}`}/>
                                 </button>
                             </div>
                         </div>
 
-                        <div className="mt-8">
-                            <button 
-                                onClick={runRoyalGamble}
-                                disabled={isGenerating}
-                                className={`group relative flex w-full items-center justify-center overflow-hidden rounded-xl py-4 font-bold text-white transition-all ${
-                                    isGenerating ? 'cursor-not-allowed opacity-80' : 'hover:scale-[1.02] shadow-[0_0_20px_rgba(236,72,153,0.3)]'
-                                }`}
-                            >
-                                <div className={`absolute inset-0 bg-gradient-to-r from-secondary via-purple-600 to-primary transition-all ${isGenerating ? 'animate-pulse' : ''}`}></div>
-                                <span className="relative z-10 flex items-center gap-2">
-                                    {isGenerating ? (
-                                        <><RefreshCw className="h-5 w-5 animate-spin" /> CASTING...</>
-                                    ) : (
-                                        <><Zap className="h-5 w-5 fill-white" /> SPIN THE WHEEL</>
-                                    )}
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Ring Pool Info */}
-                    <div className="rounded-2xl border border-white/5 bg-surface p-6">
-                         <div className="mb-4 flex items-center gap-2">
-                            <Microscope className="h-4 w-4 text-slate-400" />
-                            <h4 className="text-sm font-medium text-slate-300">Active Ring Pool</h4>
-                         </div>
-                         <div className="flex flex-wrap gap-2">
-                            {RING_POOL.slice(0, 8).map((r, i) => (
-                                <span key={i} className="rounded border border-white/5 bg-white/5 px-2 py-1 text-[10px] text-slate-400">
-                                    {r.name}
-                                </span>
-                            ))}
-                            <span className="rounded border border-white/5 bg-white/5 px-2 py-1 text-[10px] text-slate-500">
-                                +{RING_POOL.length - 8} more
+                        <button onClick={runRoyalGamble} disabled={isGenerating} className={`mt-10 group relative flex w-full items-center justify-center overflow-hidden rounded-2xl py-5 font-black uppercase tracking-[0.3em] text-xs text-white transition-all ${isGenerating ? 'opacity-50' : 'hover:scale-105 shadow-2xl hover:shadow-secondary/20 active:scale-95'}`}>
+                            <div className={`absolute inset-0 bg-gradient-to-r from-secondary via-purple-600 to-primary transition-all ${isGenerating ? 'animate-pulse' : ''}`}></div>
+                            <span className="relative z-10 flex items-center gap-3">
+                                {isGenerating ? <><RefreshCw className="h-5 w-5 animate-spin" /> Casting...</> : <><Zap className="h-5 w-5 fill-white" /> Spin Wheel</>}
                             </span>
-                         </div>
+                        </button>
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: Output & Terminal */}
-                <div className="lg:col-span-8 flex flex-col gap-6 h-[calc(100vh-12rem)]">
-                    
-                    {/* Terminal Window */}
-                    <div className="flex-none h-48 rounded-xl border border-white/10 bg-[#0c0c0c] p-4 font-mono text-xs overflow-hidden flex flex-col shadow-inner">
-                        <div className="flex items-center gap-2 border-b border-white/5 pb-2 mb-2 text-slate-500">
+                <div className="lg:col-span-8 flex flex-col gap-6 h-[calc(100vh-14rem)]">
+                    <div className="flex-none h-44 rounded-2xl border border-white/10 bg-black p-5 font-mono text-[10px] overflow-hidden flex flex-col shadow-inner">
+                        <div className="flex items-center gap-2 border-b border-white/5 pb-3 mb-3 text-slate-700 font-bold uppercase tracking-widest">
                             <Terminal className="h-3 w-3" />
-                            <span>output.log</span>
+                            <span>synthesis_log.std</span>
                         </div>
-                        <div ref={logContainerRef} className="flex-1 overflow-y-auto custom-scrollbar space-y-1">
-                            {logs.length === 0 && <span className="text-slate-600 italic">Ready to cast structures...</span>}
+                        <div ref={logContainerRef} className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5">
                             {logs.map((log, i) => (
-                                <div key={i} className={`flex gap-2 ${
-                                    log.type === 'error' ? 'text-red-400' :
-                                    log.type === 'success' ? 'text-green-400' :
-                                    log.type === 'warning' ? 'text-yellow-400' :
-                                    log.type === 'casino' ? 'text-secondary' : 'text-slate-300'
-                                }`}>
-                                    <span className="text-slate-600">[{log.timestamp}]</span>
+                                <div key={i} className={`flex gap-3 leading-none ${log.type === 'error' ? 'text-red-400' : log.type === 'success' ? 'text-green-400' : log.type === 'warning' ? 'text-yellow-400' : log.type === 'casino' ? 'text-secondary font-bold italic' : 'text-slate-500'}`}>
+                                    <span className="opacity-30">[{log.timestamp}]</span>
                                     <span>{log.message}</span>
                                 </div>
                             ))}
-                            {isGenerating && <div className="animate-pulse text-primary">_</div>}
+                            {isGenerating && <div className="animate-pulse text-primary font-bold">_ EXECUTION_THREAD_LIVE</div>}
                         </div>
                     </div>
 
-                    {/* Results Grid */}
-                    <div className="flex-1 overflow-hidden flex flex-col rounded-2xl border border-white/5 bg-surface">
-                         <div className="p-4 border-b border-white/10 flex items-center justify-between bg-surfaceHighlight">
-                            <h3 className="font-semibold text-white flex items-center gap-2">
-                                <Sparkles className="h-4 w-4 text-yellow-400" />
-                                Generated Molecules
+                    <div className="flex-1 overflow-hidden flex flex-col rounded-3xl border border-white/5 bg-surface shadow-2xl">
+                         <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-white flex items-center gap-3">
+                                <Sparkles className="h-4 w-4 text-yellow-400" /> Output Batch
                             </h3>
-                            <div className="flex items-center gap-4 text-xs">
+                            <div className="flex items-center gap-6">
                                 {!isGenerating && results.length > 0 && (
-                                    <button 
-                                        onClick={downloadSDF}
-                                        className="flex items-center gap-2 rounded bg-primary/20 px-3 py-1.5 font-bold text-primary hover:bg-primary/30 transition-colors"
-                                    >
-                                        <Download className="h-3 w-3" />
-                                        Download SDF
+                                    <button onClick={downloadSDF} className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 transition-all">
+                                        <Download className="h-3 w-3" /> Export SDF
                                     </button>
                                 )}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-slate-400">Progress:</span>
-                                    <div className="w-32 h-2 bg-black rounded-full overflow-hidden">
-                                        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-32 h-1.5 bg-black rounded-full overflow-hidden border border-white/5">
+                                        <div className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500" style={{ width: `${progress}%` }}></div>
                                     </div>
-                                    <span className="font-mono text-white">{results.length}/{numStructures}</span>
+                                    <span className="font-mono text-[10px] text-white font-bold">{results.length} / {numStructures}</span>
                                 </div>
                             </div>
                          </div>
                          
-                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {results.map((mol) => (
-                                    <div key={mol.id} className="group relative rounded-xl border border-white/5 bg-black/20 p-4 transition-all hover:bg-white/5 hover:border-primary/30">
-                                        <div className="flex items-start justify-between mb-3">
+                                    <div key={mol.id} className="group relative rounded-2xl border border-white/5 bg-black/40 p-5 transition-all hover:bg-white/5 hover:border-primary/30 shadow-lg hover:shadow-primary/5">
+                                        <div className="flex items-start justify-between mb-4">
                                             <div className="flex items-center gap-2">
-                                                <span className="flex h-6 w-6 items-center justify-center rounded bg-white/10 text-xs font-mono text-white">
+                                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-[10px] font-black text-white border border-white/5">
                                                     {mol.id}
                                                 </span>
                                                 {mol.bluffed && (
-                                                    <span className="flex items-center gap-1 rounded bg-secondary/10 px-1.5 py-0.5 text-[10px] font-bold text-secondary border border-secondary/20">
-                                                        <Ghost className="h-3 w-3" /> BLUFF
+                                                    <span className="flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[8px] font-black text-secondary border border-secondary/20 uppercase tracking-widest">
+                                                        <Ghost className="h-2.5 w-2.5" /> Bluff
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className="text-[10px] text-slate-500 font-mono">{mol.timestamp}</span>
+                                            <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">{mol.timestamp}</span>
                                         </div>
                                         
-                                        {/* Structure Visualization (Abstract) */}
-                                        <div className="flex items-center justify-center gap-1 mb-4 text-[10px] text-slate-300 font-mono bg-black/40 p-2 rounded-lg border border-white/5">
-                                            <span className="truncate max-w-[60px]" title={mol.rings[0]}>{mol.rings[0]}</span>
-                                            <span className="text-slate-600">
-                                                {mol.chiralMode > 0 ? '—💠—' : '——'}
-                                            </span>
-                                            <span className="truncate max-w-[60px] text-primary" title={mol.rings[1]}>{mol.rings[1]}</span>
-                                            <span className="text-slate-600">
-                                                 {mol.chiralMode > 1 ? '—💠—' : '——'}
-                                            </span>
-                                            <span className="truncate max-w-[60px]" title={mol.rings[2]}>{mol.rings[2]}</span>
+                                        <div className="flex items-center justify-center gap-2 mb-6 py-4 bg-black/40 rounded-xl border border-white/5 group-hover:border-primary/20 transition-colors">
+                                             <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-white/5 border border-white/5">
+                                                <Microscope className="h-5 w-5 text-slate-600 group-hover:text-primary transition-colors" />
+                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-1.5 rounded bg-white/10 hover:bg-primary hover:text-white text-slate-400 transition-colors">
-                                                <Settings className="h-3 w-3" />
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button 
+                                                onClick={() => setSelectedDetail(mol)}
+                                                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-500 hover:text-white transition-all border border-white/5"
+                                            >
+                                                <Settings className="h-4 w-4" />
                                             </button>
-                                            <button className="p-1.5 rounded bg-white/10 hover:bg-primary hover:text-white text-slate-400 transition-colors">
-                                                <Play className="h-3 w-3" />
+                                            <button 
+                                                onClick={() => launchDocking(mol)}
+                                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-white font-black uppercase tracking-widest text-[9px] transition-all border border-primary/20"
+                                            >
+                                                <Activity className="h-3 w-3" /> Docking
                                             </button>
                                         </div>
                                     </div>
                                 ))}
-                                {results.length === 0 && !isGenerating && (
-                                    <div className="col-span-full py-20 text-center text-slate-600 border border-dashed border-white/5 rounded-xl">
-                                        <Dices className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                                        <p>Ready to generate. Configure parameters and spin the wheel.</p>
-                                    </div>
-                                )}
                             </div>
                          </div>
                     </div>
                 </div>
-
             </div>
+
+            {selectedDetail && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="w-full max-w-md rounded-3xl border border-white/10 bg-surface shadow-2xl overflow-hidden p-8">
+                        <div className="flex items-center justify-between mb-8">
+                            <h4 className="text-xl font-black text-white uppercase italic tracking-tighter">Molecule Specification</h4>
+                            <button onClick={() => setSelectedDetail(null)} className="text-slate-400 hover:text-white transition-colors">
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">Entity ID</span>
+                                    <span className="text-white font-mono text-sm tracking-widest">#{selectedDetail.id}-CASINO</span>
+                                </div>
+                                <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                                    <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">Complexity</span>
+                                    <span className="text-white font-mono text-sm tracking-widest">LEVEL-{selectedDetail.chiralMode + 1}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <span className="text-[10px] font-black text-slate-500 uppercase block mb-3">Ring Sequence</span>
+                                <div className="space-y-2">
+                                    {selectedDetail.rings.map((r, i) => (
+                                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-black border border-white/5">
+                                            <span className="h-5 w-5 flex items-center justify-center rounded bg-primary/20 text-primary text-[10px] font-bold">{i+1}</span>
+                                            <span className="text-xs text-white font-bold uppercase tracking-widest">{r}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={() => setSelectedDetail(null)} className="w-full mt-10 py-4 bg-white text-black font-black uppercase tracking-[0.3em] text-xs rounded-2xl hover:bg-slate-200 transition-all">
+                            Close Specification
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

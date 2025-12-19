@@ -24,8 +24,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
                 </span>
             </h1>
             <p className="mb-8 text-lg text-slate-400">
-                AI-driven analysis analyzing brain activity to provide insight into your mental and physical well-being.
-                (Adapted for Drug Discovery: Transform RDKit scripts into automated pipelines).
+                AI-driven analysis analyzing molecular binding activity to provide insight into your target discovery pipeline. 
+                Transform RDKit scripts into automated production-grade drug discovery workflows.
             </p>
             <div className="flex flex-wrap gap-4">
                 <button
@@ -64,12 +64,16 @@ const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: 'Active Projects', value: '12', icon: Database, color: 'text-blue-400' },
-          { label: 'Molecules Screened', value: '1.2M', icon: Microscope, color: 'text-green-400' },
-          { label: 'Compute Hours', value: '8.5k', icon: Clock, color: 'text-orange-400' },
-          { label: 'Success Rate', value: '4.2%', icon: FlaskConical, color: 'text-purple-400' },
+          { label: 'Active Projects', value: '12', icon: Database, color: 'text-blue-400', view: ViewState.PROJECTS },
+          { label: 'Molecules Screened', value: '1.2M', icon: Microscope, color: 'text-green-400', view: ViewState.MOLECULES },
+          { label: 'Compute Hours', value: '8.5k', icon: Clock, color: 'text-orange-400', view: ViewState.JOBS },
+          { label: 'Success Rate', value: '4.2%', icon: FlaskConical, color: 'text-purple-400', view: ViewState.DOCKING },
         ].map((stat, idx) => (
-          <div key={idx} className="group rounded-2xl border border-white/5 bg-surface p-6 transition-all hover:border-white/10 hover:bg-surfaceHighlight">
+          <div 
+            key={idx} 
+            onClick={() => setView(stat.view)}
+            className="group cursor-pointer rounded-2xl border border-white/5 bg-surface p-6 transition-all hover:border-white/10 hover:bg-surfaceHighlight"
+          >
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/5 group-hover:bg-white/10">
               <stat.icon className={`h-5 w-5 ${stat.color}`} />
             </div>
@@ -88,13 +92,17 @@ const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
             </div>
             <div className="space-y-4">
                 {MOCK_PROJECTS.slice(0, 3).map((proj) => (
-                    <div key={proj.id} className="flex items-center justify-between rounded-xl bg-surfaceHighlight p-4 transition-colors hover:bg-white/5">
+                    <div 
+                        key={proj.id} 
+                        onClick={() => setView(ViewState.PROJECTS)}
+                        className="flex cursor-pointer items-center justify-between rounded-xl bg-surfaceHighlight p-4 transition-all hover:bg-white/5 group"
+                    >
                         <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                                 <Database className="h-5 w-5" />
                             </div>
                             <div>
-                                <h4 className="font-medium text-white">{proj.name}</h4>
+                                <h4 className="font-medium text-white group-hover:text-primary transition-colors">{proj.name}</h4>
                                 <p className="text-xs text-slate-500">{proj.moleculeCount} molecules • {proj.lastActive}</p>
                             </div>
                         </div>
@@ -116,7 +124,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
             </div>
             <div className="space-y-4">
                 {MOCK_JOBS.slice(0, 3).map((job) => (
-                    <div key={job.id} className="rounded-xl bg-surfaceHighlight p-4">
+                    <div 
+                        key={job.id} 
+                        onClick={() => setView(ViewState.JOBS)}
+                        className="rounded-xl bg-surfaceHighlight p-4 cursor-pointer hover:bg-white/5 transition-all group"
+                    >
                         <div className="mb-3 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className={`h-2 w-2 rounded-full ${
@@ -124,7 +136,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setView }) => {
                                     job.status === 'COMPLETED' ? 'bg-green-400' :
                                     job.status === 'FAILED' ? 'bg-red-400' : 'bg-slate-400'
                                 }`}></div>
-                                <span className="text-sm font-medium text-slate-200">{job.name}</span>
+                                <span className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">{job.name}</span>
                             </div>
                             <span className="text-xs text-slate-500">{job.startedAt}</span>
                         </div>

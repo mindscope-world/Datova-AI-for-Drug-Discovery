@@ -19,7 +19,7 @@ const App: React.FC = () => {
       case ViewState.MOLECULES:
         return <MoleculeViewer />;
       case ViewState.DOCKING:
-        return <DockingAnalysis />;
+        return <DockingAnalysis setView={setView} />;
       case ViewState.GENERATOR:
         return <Generator />;
       case ViewState.JOBS:
