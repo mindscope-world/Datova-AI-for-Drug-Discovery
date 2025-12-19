@@ -5,9 +5,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: [
-      'datova-ai-for-drug-discovery.onrender.com'
+      'datova-ai-for-drug-discovery.onrender.com',
+      '.onrender.com'
     ],
     host: true,
-    port: 5173
+    port: 5173,
+    strictPort: true
   }
 })
